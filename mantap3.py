@@ -6,24 +6,38 @@ from streamlit.components.v1 import html
 import base64
 from datetime import datetime, timedelta
 import pandas as pd
-import pyrebase
 from dateutil import parser
 import math
+import firebase_admin
+from firebase_admin import credentials, db, storage
+import os
 
+# Inisialisasi Streamlit
 st.set_page_config(page_title="Monitoring Kapal", page_icon="🚤", layout='wide')
 
-# Konfigurasi Firebase
-config = {
-    "apiKey": "your-api-key",
-    "authDomain": "your-auth-domain",
-    "databaseURL": "https://coba-53d06-default-rtdb.asia-southeast1.firebasedatabase.app/",
-    "storageBucket": "coba-53d06.appspot.com",
-    "serviceAccount": "serviceAccountKey.json"
-}
-
 # Inisialisasi Firebase
-firebase = pyrebase.initialize_app(config)
-db = firebase.database()
+def initialize_firebase():
+    try:
+        cred_path = 'serviceAccountKey.json'
+        if not os.path.exists(cred_path):
+            st.error(f"File {cred_path} tidak ditemukan. Pastikan file tersebut ada di direktori aplikasi.")
+            st.stop()
+
+        cred = credentials.Certificate(cred_path)
+        firebase_admin.initialize_app(cred, {
+            "databaseURL": "https://coba-53d06-default-rtdb.asia-southeast1.firebasedatabase.app/",
+            "storageBucket": "coba-53d06.appspot.com"
+        })
+        st.success("Firebase berhasil diinisialisasi.")
+    except Exception as e:
+        st.error(f"Gagal menginisialisasi Firebase: {e}")
+        st.stop()
+
+initialize_firebase()
+
+# Referensi ke Realtime Database dan Storage
+firebase_db = db.reference()
+firebase_storage = storage.bucket()
 
 # URL gambar
 atas = 'https://firebasestorage.googleapis.com/v0/b/coba-53d06.appspot.com/o/surface%2Fsurface.jpeg?alt=media'
@@ -40,15 +54,23 @@ st.markdown(
 )
 
 def load_css(file_name):
-    with open(file_name) as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    if os.path.exists(file_name):
+        with open(file_name) as f:
+            st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+    else:
+        st.warning(f"File '{file_name}' tidak ditemukan. Melanjutkan tanpa stylesheet khusus.")
 
+# Pastikan file "style.css" tersedia di direktori aplikasi Anda
 load_css("style.css")
 
 # Fungsi untuk mengkonversi gambar menjadi base64
 def get_base64_image(image_file):
-    with open(image_file, "rb") as f:
-        return base64.b64encode(f.read()).decode()
+    try:
+        with open(image_file, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    except FileNotFoundError:
+        st.warning(f"File gambar '{image_file}' tidak ditemukan.")
+        return ""
 
 # Fungsi untuk membuat peta dengan Folium
 def create_map(points):
@@ -91,21 +113,27 @@ def create_map(points):
             )
 
             if index == len(points) - 1:
-                custom_icon_path = "kapal.png"  # Ganti dengan path gambar kamu
+                custom_icon_path = "kapal.png"  # Ganti dengan path gambar Anda
                 base64_image = get_base64_image(custom_icon_path)
                 heading = point.get("cog", 0)
 
-                icon_html = f"""
-                <div style="transform: rotate({heading}deg); margin-left: -50px; margin-top: -50px;">
-                    <img src="data:image/png;base64,{base64_image}" style="width:100px; height:100px;"/>
-                </div>
-                """
-
-                folium.Marker(
-                    location=[latitude, longitude],
-                    popup=popup_content,
-                    icon=folium.DivIcon(html=icon_html)
-                ).add_to(gps_map)
+                if base64_image:
+                    icon_html = f"""
+                    <div style="transform: rotate({heading}deg); margin-left: -50px; margin-top: -50px;">
+                        <img src="data:image/png;base64,{base64_image}" style="width:100px; height:100px;"/>
+                    </div>
+                    """
+                    folium.Marker(
+                        location=[latitude, longitude],
+                        popup=popup_content,
+                        icon=folium.DivIcon(html=icon_html)
+                    ).add_to(gps_map)
+                else:
+                    folium.Marker(
+                        location=[latitude, longitude],
+                        popup=popup_content,
+                        icon=folium.Icon(color="red", icon="info-sign")
+                    ).add_to(gps_map)
             else:
                 folium.Marker(
                     location=[latitude, longitude],
@@ -133,24 +161,24 @@ def get_updated_image_url(base_url):
     timestamp = int(time.time())  # Mendapatkan timestamp saat ini
     return f"{base_url}&t={timestamp}"  # Tambahkan timestamp sebagai parameter query
 
-# Fungsi untuk mengambil data dari Firebase
+# Fungsi untuk mengambil data dari Firebase menggunakan firebase_admin
 def fetch_data():
     try:
-        if db is None:
+        if firebase_db is None:
             st.error("Koneksi ke Firebase tidak tersedia.")
             return None, None  # Mengembalikan dua nilai None
 
         # Ambil data dari node 'info' untuk mendapatkan counter
-        info = db.child("info").get().val()
+        info = firebase_db.child("info").get()
         if info is None or "counter" not in info:
             st.error("Counter tidak ditemukan di node 'info'. Periksa konfigurasi Firebase.")
             return None, None  # Mengembalikan dua nilai None
-        
+
         counter = info.get("counter")
         folder = f"gps-points{str(counter).zfill(2)}"
 
         # Ambil data dari folder yang sesuai
-        data = db.child(folder).get().val()
+        data = firebase_db.child(folder).get()
 
         if data is None:
             st.warning(f"Tidak ada data ditemukan di folder: {folder}")
@@ -160,7 +188,6 @@ def fetch_data():
     except Exception as e:
         st.error(f"Terjadi kesalahan saat mengambil data: {e}")
         return None, None  # Mengembalikan dua nilai None
-
 
 def generate_geotag_info(timestamp, lat, lon, speed_knots, cog):
     # Initialize variables with default values
@@ -182,8 +209,8 @@ def generate_geotag_info(timestamp, lat, lon, speed_knots, cog):
             st.error(f"Error parsing timestamp: {e}")
 
     # Jika latitude atau longitude tidak valid, tampilkan "-"
-    if lat is None:
-        coord_decimal = coord_minute = "-"
+    if lat is None or lon is None:
+        coord_decimal = "-"
     else:
         lat_deg = int(abs(lat))
         lat_min = (abs(lat) - lat_deg) * 60
@@ -210,13 +237,11 @@ def generate_geotag_info(timestamp, lat, lon, speed_knots, cog):
         f"Date: {date_str}\n"
         f"Time: {time_str}\n"
         f"Coordinate: [{coord_decimal}]\n"
-        f"Speed Over Ground: {speed_knots:.0f} knots / {speed_kph:.0f} km/h\n"
-        f"Course Over Ground: {cog:.2f}°"
+        f"Speed Over Ground: {speed_knots} knots / {speed_kph} km/h\n"
+        f"Course Over Ground: {cog}°"
     )
 
     return geotag_info
-
-
 
 # Membuat layout kolom untuk peta dan gambar
 col1, col2 = st.columns(2, gap="small")  # Kolom 1 lebih besar untuk peta dan kolom 2 untuk gambar
@@ -224,7 +249,7 @@ gps_points = []
 position_data = []
 
 def run_streamlit():
-    info = db.child("info").get().val()
+    info = firebase_db.child("info").get()
 
     link = info.get('link', '')
     arena = info.get('arena', '')
@@ -278,6 +303,7 @@ def run_streamlit():
         counter, data = fetch_data()  # Ambil counter dan data
         
         if data is None:  # Jika tidak ada data, lanjutkan ke iterasi berikutnya
+            time.sleep(0.5)
             continue  
 
         # Ambil folder baru berdasarkan counter
@@ -332,7 +358,7 @@ def run_streamlit():
                             lat = float(lat) if lat is not None else None
                             lon = float(lon) if lon is not None else None
                         except ValueError:
-                            continue  # Skip this point if conversion fails
+                            continue  # Skip this point jika konversi gagal
 
                         # Format koordinat menjadi degree, decimal
                         if lat is not None and lon is not None:
@@ -361,7 +387,7 @@ def run_streamlit():
                             lat = float(lat) if lat is not None else None
                             lon = float(lon) if lon is not None else None
                         except ValueError:
-                            continue  # Skip this point if conversion fails
+                            continue  # Skip this point jika konversi gagal
 
                         if lat is not None and lon is not None:
                             geotag_info = generate_geotag_info(timestamp, lat, lon, speed_knots, cog)
@@ -381,7 +407,7 @@ def run_streamlit():
                             lat = float(lat) if lat is not None else None
                             lon = float(lon) if lon is not None else None
                         except ValueError:
-                            continue  # Skip this point if conversion fails
+                            continue  # Skip this point jika konversi gagal
 
                         if lat is not None and lon is not None:
                             geotag_info = generate_geotag_info(timestamp, lat, lon, speed_knots, cog)
