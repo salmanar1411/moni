@@ -1,5 +1,7 @@
 streamlit
+pyrebase4
+pycryptodome
+requests
 folium
 pandas
-pyrebase
 python-dateutil
