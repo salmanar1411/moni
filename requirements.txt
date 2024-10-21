@@ -1,8 +1,8 @@
 streamlit
 requests
 folium
-pyrebase4
+pyrebase
 pandas
 python-dateutil
 firebase-admin
-google-cloud-storage
+base64
