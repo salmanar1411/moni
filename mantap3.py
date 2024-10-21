@@ -6,7 +6,7 @@ from streamlit.components.v1 import html
 import base64
 from datetime import datetime, timedelta
 import pandas as pd
-import pyrebase
+import pyrebase4
 from dateutil import parser
 import math
 
