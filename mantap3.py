@@ -1,8 +1,3 @@
-
-
-# Inisialisasi Firebase Admin SDK
-
-
 import firebase_admin
 from firebase_admin import credentials, db, storage
 import streamlit as st
