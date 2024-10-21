@@ -1,0 +1,7 @@
+streamlit
+requests
+folium
+pyrebase4
+pandas
+python-dateutil
+firebase-admin
