@@ -1,8 +1,5 @@
 streamlit
-requests
 folium
-pyrebase
 pandas
+pyrebase
 python-dateutil
-firebase-admin
-base64
