@@ -36,8 +36,11 @@ def initialize_firebase():
             "storageBucket": "coba-53d06.appspot.com"
         })
         st.success("Firebase berhasil diinisialisasi.")
+    except firebase_admin.exceptions.RefreshError as re:
+        st.error(f"RefreshError: {re}")
+        st.stop()
     except firebase_admin.exceptions.FirebaseError as fe:
-        st.error(f"Gagal menginisialisasi Firebase: {fe}")
+        st.error(f"FirebaseError: {fe}")
         st.stop()
     except Exception as e:
         st.error(f"Terjadi kesalahan saat inisialisasi Firebase: {e}")
@@ -111,7 +114,7 @@ def create_map(points):
             latitude = point.get("lat")
             longitude = point.get("lon")
 
-            if latitude is None atau longitude is None:
+            if latitude is None or longitude is None:
                 continue
 
             popup_content = (
@@ -196,8 +199,11 @@ def fetch_data():
             return counter, None
 
         return counter, data
+    except firebase_admin.exceptions.RefreshError as re:
+        st.error(f"RefreshError: {re}")
+        return None, None
     except firebase_admin.exceptions.FirebaseError as fe:
-        st.error(f"Terjadi kesalahan saat mengambil data dari Firebase: {fe}")
+        st.error(f"FirebaseError: {fe}")
         return None, None
     except Exception as e:
         st.error(f"Terjadi kesalahan saat mengambil data: {e}")
@@ -221,7 +227,7 @@ def generate_geotag_info(timestamp, lat, lon, speed_knots, cog):
         except Exception as e:
             st.error(f"Error parsing timestamp: {e}")
 
-    if lat is None atau lon is None:
+    if lat is None or lon is None:
         coord_decimal = "-"
     else:
         lat_deg = int(abs(lat))
@@ -238,7 +244,7 @@ def generate_geotag_info(timestamp, lat, lon, speed_knots, cog):
 
     if cog is None:
         cog = "-"
-
+    
     geotag_info = (
         f"Geo-tag Infos:\n"
         f"Day: {day_of_week}\n"
@@ -258,6 +264,10 @@ position_data = []
 
 def run_streamlit():
     info = firebase_db.child("info").get()
+
+    if info is None:
+        st.error("Data 'info' tidak ditemukan di Firebase.")
+        st.stop()
 
     link = info.get('link', '')
     arena = info.get('arena', '')
