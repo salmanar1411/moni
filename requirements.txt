@@ -5,3 +5,4 @@ pyrebase4
 pandas
 python-dateutil
 firebase-admin
+google-cloud-storage
