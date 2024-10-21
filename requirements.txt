@@ -1,7 +1,8 @@
 streamlit
-pyrebase4
-pycryptodome
+firebase_admin
+google-cloud-storage
 requests
 folium
 pandas
 python-dateutil
+# Tambahkan dependensi lain yang diperlukan
