@@ -11,6 +11,7 @@ from dateutil import parser
 import math
 import firebase_admin
 from firebase_admin import credentials, db, storage
+import google.auth.exceptions  # Import RefreshError
 
 # Inisialisasi Streamlit
 st.set_page_config(page_title="Monitoring Kapal", page_icon="🚤", layout='wide')
@@ -36,7 +37,7 @@ def initialize_firebase():
             "storageBucket": "coba-53d06.appspot.com"
         })
         st.success("Firebase berhasil diinisialisasi.")
-    except firebase_admin.exceptions.RefreshError as re:
+    except google.auth.exceptions.RefreshError as re:  # Perbaikan di sini
         st.error(f"RefreshError: {re}")
         st.stop()
     except firebase_admin.exceptions.FirebaseError as fe:
@@ -199,7 +200,7 @@ def fetch_data():
             return counter, None
 
         return counter, data
-    except firebase_admin.exceptions.RefreshError as re:
+    except google.auth.exceptions.RefreshError as re:
         st.error(f"RefreshError: {re}")
         return None, None
     except firebase_admin.exceptions.FirebaseError as fe:
@@ -356,75 +357,75 @@ def run_streamlit():
                     with geotag_placeholder:
                         st.text(geotag_info)
 
-            # Proses setiap titik GPS
-            for key, gps_raw_int in data.items():
-                if key.startswith('bola'):
-                    if isinstance(gps_raw_int, dict):
-                        timestamp = str(gps_raw_int.get('timestamp'))
-                        lat = gps_raw_int.get('lat')
-                        lon = gps_raw_int.get('lon')
-                        speed_knots = gps_raw_int.get('speed_knots', 0)
-                        speed_kph = speed_knots * 1.852
-                        cog = gps_raw_int.get('cog', 0)
+        # Proses setiap titik GPS
+        for key, gps_raw_int in data.items():
+            if key.startswith('bola'):
+                if isinstance(gps_raw_int, dict):
+                    timestamp = str(gps_raw_int.get('timestamp'))
+                    lat = gps_raw_int.get('lat')
+                    lon = gps_raw_int.get('lon')
+                    speed_knots = gps_raw_int.get('speed_knots', 0)
+                    speed_kph = speed_knots * 1.852
+                    cog = gps_raw_int.get('cog', 0)
 
-                        try:
-                            lat = float(lat) if lat is not None else None
-                            lon = float(lon) if lon is not None else None
-                        except ValueError:
-                            continue
+                    try:
+                        lat = float(lat) if lat is not None else None
+                        lon = float(lon) if lon is not None else None
+                    except ValueError:
+                        continue
 
-                        if lat is not None and lon is not None:
-                            gps_lat = f"{'S' if lat < 0 else 'N'} {abs(lat):.5f}"
-                            gps_lon = f"{'W' if lon < 0 else 'E'} {abs(lon):.5f}"
+                    if lat is not None and lon is not None:
+                        gps_lat = f"{'S' if lat < 0 else 'N'} {abs(lat):.5f}"
+                        gps_lon = f"{'W' if lon < 0 else 'E'} {abs(lon):.5f}"
 
-                            gps_points.append({
-                                "ID": key,
-                                "timestamp": timestamp,
-                                "coordinate": f"{gps_lat}, {gps_lon}", 
-                                "speed_kph": speed_kph,
-                                "speed_knots": speed_knots,
-                                "cog": cog
-                            })
+                        gps_points.append({
+                            "ID": key,
+                            "timestamp": timestamp,
+                            "coordinate": f"{gps_lat}, {gps_lon}", 
+                            "speed_kph": speed_kph,
+                            "speed_knots": speed_knots,
+                            "cog": cog
+                        })
 
-                if key.startswith('underwater'):
-                    if isinstance(gps_raw_int, dict):
-                        timestamp = str(gps_raw_int.get('timestamp'))
-                        lat = gps_raw_int.get('lat')
-                        lon = gps_raw_int.get('lon')
-                        speed_knots = gps_raw_int.get('speed_knots', 0)
-                        speed_kph = speed_knots * 1.852
-                        cog = gps_raw_int.get('cog', 0)
+            if key.startswith('underwater'):
+                if isinstance(gps_raw_int, dict):
+                    timestamp = str(gps_raw_int.get('timestamp'))
+                    lat = gps_raw_int.get('lat')
+                    lon = gps_raw_int.get('lon')
+                    speed_knots = gps_raw_int.get('speed_knots', 0)
+                    speed_kph = speed_knots * 1.852
+                    cog = gps_raw_int.get('cog', 0)
 
-                        try:
-                            lat = float(lat) if lat is not None else None
-                            lon = float(lon) if lon is not None else None
-                        except ValueError:
-                            continue
+                    try:
+                        lat = float(lat) if lat is not None else None
+                        lon = float(lon) if lon is not None else None
+                    except ValueError:
+                        continue
 
-                        if lat is not None and lon is not None:
-                            geotag_info = generate_geotag_info(timestamp, lat, lon, speed_knots, cog)
-                            with undergeo_placeholder:
-                                st.text(geotag_info)
+                    if lat is not None and lon is not None:
+                        geotag_info = generate_geotag_info(timestamp, lat, lon, speed_knots, cog)
+                        with undergeo_placeholder:
+                            st.text(geotag_info)
 
-                if key.startswith('surface'):
-                    if isinstance(gps_raw_int, dict):
-                        timestamp = str(gps_raw_int.get('timestamp'))
-                        lat = gps_raw_int.get('lat')
-                        lon = gps_raw_int.get('lon')
-                        speed_knots = gps_raw_int.get('speed_knots', 0)
-                        speed_kph = speed_knots * 1.852
-                        cog = gps_raw_int.get('cog', 0)
+            if key.startswith('surface'):
+                if isinstance(gps_raw_int, dict):
+                    timestamp = str(gps_raw_int.get('timestamp'))
+                    lat = gps_raw_int.get('lat')
+                    lon = gps_raw_int.get('lon')
+                    speed_knots = gps_raw_int.get('speed_knots', 0)
+                    speed_kph = speed_knots * 1.852
+                    cog = gps_raw_int.get('cog', 0)
 
-                        try:
-                            lat = float(lat) if lat is not None else None
-                            lon = float(lon) if lon is not None else None
-                        except ValueError:
-                            continue
+                    try:
+                        lat = float(lat) if lat is not None else None
+                        lon = float(lon) if lon is not None else None
+                    except ValueError:
+                        continue
 
-                        if lat is not None and lon is not None:
-                            geotag_info = generate_geotag_info(timestamp, lat, lon, speed_knots, cog)
-                            with surgeo_placeholder:
-                                st.text(geotag_info)
+                    if lat is not None and lon is not None:
+                        geotag_info = generate_geotag_info(timestamp, lat, lon, speed_knots, cog)
+                        with surgeo_placeholder:
+                            st.text(geotag_info)
 
         # Membuat tabel
         tabel = pd.DataFrame(gps_points)
