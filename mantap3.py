@@ -1,3 +1,8 @@
+
+
+# Inisialisasi Firebase Admin SDK
+
+
 import firebase_admin
 from firebase_admin import credentials, db, storage
 import streamlit as st
@@ -11,12 +16,13 @@ import math
 
 st.set_page_config(page_title="Monitoring Kapal", page_icon="🚤", layout='wide')
 
-# Inisialisasi Firebase Admin SDK
-cred = credentials.Certificate("serviceAccountKey.json")  # Path to your service account key
-firebase_admin.initialize_app(cred, {
-    'databaseURL': 'https://coba-53d06-default-rtdb.asia-southeast1.firebasedatabase.app/',  # URL of your Firebase Realtime Database
-    'storageBucket': 'coba-53d06.appspot.com'  # URL of your Firebase Storage bucket
-})
+# Inisialisasi Firebase Admin SDK hanya jika belum diinisialisasi
+if not firebase_admin._apps:
+    cred = credentials.Certificate("serviceAccountKey.json")  # Path to your service account key
+    firebase_admin.initialize_app(cred, {
+        'databaseURL': 'https://coba-53d06-default-rtdb.asia-southeast1.firebasedatabase.app/',  # URL of your Firebase Realtime Database
+        'storageBucket': 'coba-53d06.appspot.com'  # URL of your Firebase Storage bucket
+    })
 
 # URL gambar di Firebase Storage
 atas = 'surface/surface.jpeg'
@@ -232,8 +238,8 @@ def run_streamlit():
                 timestamp = str(position_raw.get('timestamp'))
                 lat = position_raw.get('lat')
                 lon = position_raw.get('lon')
-                speed_knots = position_raw.get('speed_knots', 0)
-                speed_kph = speed_knots * 1.852
+                speed_knots = position_raw.get('speed_knots')
+                speed_kph = speed_knots * 1.852 if speed_knots else "-"
                 cog = position_raw.get('cog')
 
                 position_data = [
@@ -269,3 +275,4 @@ def run_streamlit():
         time.sleep(2)
 
 run_streamlit()
+
