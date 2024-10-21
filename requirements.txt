@@ -5,4 +5,4 @@ requests
 folium
 pandas
 python-dateutil
-# Tambahkan dependensi lain yang diperlukan
+dateutil
